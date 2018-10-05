@@ -62,13 +62,15 @@ const createSession = (usuario, db) => {
 	const token = signToken(dni);
 	return setToken(token, id)
 		.then(() => {
-      return getRol(rol_id, db).then((rol) => {
+      return getRol(rol_id, db)
+      .then((rol) => {
         const usuario_rol = rol.descripcion;
         return { success: 'true', usuarioId: id, token, usuario_rol };
       }).catch((err) => Promise.reject('Error obteniendo rol.'));
 		}).catch(console.log);
 }
 
+// Obtener el rol de un determinado usuario
 const getRol = (rol_id, db) => {
   return db.select('descripcion')
           .from('roles')

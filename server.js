@@ -5,7 +5,6 @@ const cors = require('cors'); //Usado para poder hacer peticiones desde otro dom
 const helmet = require ('helmet'); //Usado para asegurar los headers de los requests
 const compression = require('compression'); //Usado para comprimir los requests con gzip
 const morgan = require('morgan'); //Usado para log del server (logeo de todos los requests)
-const _ = require('lodash'); //Usado para facilitar muchas funciones
 const knex = require('knex'); //Usado para conectar con la BD de PostgreSQL, queries, seeds, etc.
 const bcrypt = require('bcrypt-nodejs'); //Usado para hashear las passwords
 
@@ -57,8 +56,9 @@ app.post('/logIn', loginController.loginAuthentication(db, bcrypt));
 //-------------------------- Servicios asociados a usuarios ---------------------------
 
 app.post('/crearNuevaCuenta', (req, res) => {
-  let dni = req.body.dni;
-  let nombre = req.body.nombre;
+  const { nombre, apellido, fechaNacimiento, sexo, password, dni, email } = req.body;
+  if(!nombre || !apellido || !fechaNacimiento || !sexo || !password || !dni || !email)
+    res.status(400).json();
   res.status(200).json('success');
 });
 
