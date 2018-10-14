@@ -93,19 +93,23 @@ const activarUsuario = (db) => (req, res) => {
     redisClient.get(token, (err, reply) => {
   		if(err || !reply)
   			return res.status(400).json();
-        db('usuarios')
-           .where('dni', reply)
-           .update({estado: 'activo'})
-           .then(() => {
-             logger.info('usuario activado');
-             return res.status(200).json();
-           })
-           .catch((error) => {
-             logger.error(error);
-             return res.status(500).json();
-           })
+      db('usuarios')
+         .where('dni', reply)
+         .update({estado: 'activo'})
+         .then(() => {
+           logger.info('usuario activado');
+           return res.status(200).json();
+         })
+         .catch((error) => {
+           logger.error(error);
+           return res.status(500).json();
+         })
   	});
-  }
+		redisClient.del(token);
+		return res.status(200).redirect('http://localhost:4200/');
+  } else {
+		return res.status(400).json();
+	}
 };
 
 module.exports = {

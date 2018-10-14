@@ -22,7 +22,7 @@ let mailOptions = {
 
 const setMailOptions = (to, token) => {
   const urlConfirmacion = `http://localhost:3000/confirmation/${token}`;
-  const html = `<h1><b>S.U.M.AR.</b></h1><h2>Enlace de verificación único generado por el sistema:</h2><br><br><a href="${urlConfirmacion}">Click aqui para activar tu cuenta!</a>`
+  const html = `<h1><b>S.U.M.AR.</b></h1><h2>Enlace de verificación único generado por el sistema:</h2><br><br><a href="${urlConfirmacion}">Click aqui para activar tu cuenta!</a><p>Este email fue generado automáticamente por el sistema. Por favor no responderlo.</p>`
   mailOptions.to = to;
   mailOptions.html = html;
   return mailOptions;
