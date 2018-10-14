@@ -9,10 +9,12 @@ const knex = require('knex'); //Usado para conectar con la BD de PostgreSQL, que
 const bcrypt = require('bcrypt-nodejs'); //Usado para hashear las passwords
 
 // Controllers
-const loginController  = require('./controllers/loginController.js');
+const loginController  = require('./controllers/loginController');
+const usuarioController = require('./controllers/usuarioController');
 
 // Configuraciones
 const connection = require('./db/config');
+const loggerConfig = require('./configs/loggerConfig');
 
 // Genero el server de express
 const app = express();
@@ -26,6 +28,9 @@ app.use(morgan('combined'));
 
 // Puerto en el que escucha el server
 const PORT = 3000;
+
+// Genero logger
+const logger = loggerConfig.logger;
 
 // Conexion de la BD
 const db = knex({
@@ -41,7 +46,7 @@ const db = knex({
 
 // Asociando el puerto al server
 app.listen(PORT, () => {
-  console.log(`Server levantado en puerto:  ${PORT}`);
+  logger.info(`Server levantado en puerto: ${PORT}`);
 });
 
 
@@ -55,11 +60,9 @@ app.post('/logIn', loginController.loginAuthentication(db, bcrypt));
 
 //-------------------------- Servicios asociados a usuarios ---------------------------
 
-app.post('/crearNuevaCuenta', (req, res) => {
-  const { nombre, apellido, fechaNacimiento, sexo, password, dni, email } = req.body;
-  if(!nombre || !apellido || !fechaNacimiento || !sexo || !password || !dni || !email)
-    res.status(400).json();
-  res.status(200).json('success');
-});
+//Creacion de una nueva cuenta
+app.post('/crearNuevaCuenta', usuarioController.crearNuevaCuenta(db, bcrypt));
+//Activacion de usuario
+app.get('/confirmation/:token', usuarioController.activarUsuario(db));
 
 //-------------------------- Fin servicios API rest -----------------------------------

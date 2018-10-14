@@ -4,11 +4,16 @@ const redis = require('redis');//Usado para el manejo de Redis
 //Configuración de conexión a redis
 const config = require('../db/config');
 const REDIS_URL = config.redis_config;
+
 // Setup de redis
 const redisClient = redis.createClient({ REDIS_URL });
 
 // Secreto de tokens
 const secrets = require('../localconfigs/secrets.js');
+
+//logger
+const loggerConfig = require('../configs/loggerConfig');
+const logger = loggerConfig.logger;
 
 // Manejo del login en el sistema
 const handleLogin = (db, bcrypt, req, res) => {
@@ -25,13 +30,24 @@ const handleLogin = (db, bcrypt, req, res) => {
         return db.select('*')
           .from('usuarios')
           .where('dni', dni)
-          .then(usuario => usuario[0])
-          .catch(err => Promise.reject('Error buscando usuario'))
+          .then((usuario) => {
+            if(usuario[0].estado != 'activo'){
+              return Promise.reject('El usuario no esta activo.');
+            }
+            return usuario[0];
+          })
+          .catch((err) => {
+            logger.error(err);
+            return Promise.reject('Error buscando usuario');
+          });
       } else {
-        Promise.reject('DNI o password incorrectos.');
+        return Promise.reject('DNI o password incorrectos.');
       }
     })
-    .catch(err => Promise.reject('DNI o password incorrectos.'));
+    .catch((err) => {
+      logger.error(err);
+    return Promise.reject('DNI o password incorrectos.');
+    });
 };
 
 
@@ -41,7 +57,7 @@ const getAuthToken = (req, res) => {
 	return redisClient.get(authorization, (err, reply) => {
 		if(err || !reply)
 			return res.status(400).json('No tiene autorización');
-		return res.json({token: reply})
+		return res.json({token: reply});
 	})
 }
 
@@ -66,8 +82,14 @@ const createSession = (usuario, db) => {
       .then((rol) => {
         const usuario_rol = rol.descripcion;
         return { success: 'true', usuarioId: id, token, usuario_rol };
-      }).catch((err) => Promise.reject('Error obteniendo rol.'));
-		}).catch(console.log);
+      }).catch((err) => {
+        logger.error(err);
+        return Promise.reject('Error obteniendo rol.')
+      });
+		}).catch((err) => {
+      logger.error(err);
+      return Promise.reject(err);
+    });
 }
 
 // Obtener el rol de un determinado usuario
@@ -76,18 +98,31 @@ const getRol = (rol_id, db) => {
           .from('roles')
           .where('id', rol_id)
           .then(data => data[0])
-          .catch(err => Promise.reject('Usuario sin rol asociado'))
+          .catch((err) => {
+            logger.error(err);
+            return Promise.reject(err);
+          })
 }
 
 const loginAuthentication = (db, bcrypt) => (req, res) => {
   const { authorization } = req.headers;
   // Si tiene un token en el header lo busco en redis para ver si es un token válido y si existe, lo devuelvo
   // Si no tiene un token en el header, busco si los datos corresponen a un usuario verdadero, le genero una nueva sesión a ese usuario y devuelvo el token generado
-  return authorization ? getAuthToken(req, res) :
-    handleLogin (db, bcrypt, req, res)
-      .then(data => data.id && data.dni && data.rol_id ? createSession(data, db) : Promise.reject(data))
+  if(authorization)
+    return getAuthToken(req, res);
+  else
+    return handleLogin (db, bcrypt, req, res)
+      .then((data) => {
+          if(data.id && data.dni && data.rol_id)
+            return createSession(data, db);
+          else
+            return Promise.reject(data);
+      })
       .then(session => res.json(session))
-      .catch(err => res.status(400).json(err));
+      .catch((err) => {
+        logger.error(err);
+        return res.status(400).json(err);
+      });
 };
 
 module.exports = { loginAuthentication };
