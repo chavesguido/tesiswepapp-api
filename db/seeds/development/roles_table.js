@@ -35,7 +35,7 @@ const crearUsuario = (knex, usuario, rol) => {
         estado: usuario.estado,
         dni: usuario.dni,
         password: usuario.password,
-        rol_id: rolRecord.id
+        id_rol: rolRecord.id
       });
     });
 };

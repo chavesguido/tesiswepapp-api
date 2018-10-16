@@ -12,7 +12,7 @@ exports.up = function(knex, Promise) {
       table.date('joined');
       table.string('password');
       table.string('estado');
-      table.integer('rol_id').unsigned().references('roles.id');
+      table.integer('id_rol').unsigned().references('roles.id');
     }),
 
     knex.schema.createTable('pacientes', (table) => {
@@ -22,14 +22,15 @@ exports.up = function(knex, Promise) {
       table.date('fechaNacimiento');
       table.string('sexo');
       table.string('email').unique();
+      table.integer('id_usuario').unsigned().references('usuarios.id');
     })
   ]);
 };
 
 exports.down = function(knex, Promise) {
   return Promise.all([
+    knex.schema.dropTable('pacientes'),
     knex.schema.dropTable('usuarios'),
-    knex.schema.dropTable('roles'),
-    knex.schema.dropTable('pacientes')
+    knex.schema.dropTable('roles')
   ]);
 };

@@ -56,6 +56,12 @@ app.listen(PORT, () => {
 
 //Logeo de un usuario
 app.post('/logIn', loginController.loginAuthentication(db, bcrypt));
+//Olvido de password
+app.post('/olvidoPassword', loginController.olvidoPassword(db));
+//Confirmar codigo para olvido de password
+app.post('/confirmCodigoPassword', loginController.confirmCodigoPassword(db));
+//Cambio de constraseña
+app.post('/changePassword', loginController.changePassword(db, bcrypt));
 
 
 //-------------------------- Servicios asociados a usuarios ---------------------------

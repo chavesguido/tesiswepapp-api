@@ -15,6 +15,13 @@ const secrets = require('../localconfigs/secrets.js');
 const loggerConfig = require('../configs/loggerConfig');
 const logger = loggerConfig.logger;
 
+//Envio de mail
+const mailSender = require('./mailSender/mailSender');
+const transporter = mailSender.transporter;
+
+//Validador de data
+const validator = require('./validators/validators');
+
 // Manejo del login en el sistema
 const handleLogin = (db, bcrypt, req, res) => {
   const { dni, password } = req.body;
@@ -72,13 +79,18 @@ const setToken = (token, id) => {
 	return Promise.resolve(redisClient.set(token, id));
 }
 
+// Guardo en Redis el codigo de 6 digitos generado por olvido de password
+const setCodigo = (codigo, email) => {
+	return Promise.resolve(redisClient.set(codigo, email));
+}
+
 // Creo una nueva sesión
 const createSession = (usuario, db) => {
-  const { dni, id, rol_id } = usuario;
+  const { dni, id, id_rol } = usuario;
 	const token = signToken(dni);
 	return setToken(token, id)
 		.then(() => {
-      return getRol(rol_id, db)
+      return getRol(id_rol, db)
       .then((rol) => {
         const usuario_rol = rol.descripcion;
         return { success: 'true', usuarioId: id, token, usuario_rol };
@@ -93,15 +105,20 @@ const createSession = (usuario, db) => {
 }
 
 // Obtener el rol de un determinado usuario
-const getRol = (rol_id, db) => {
+const getRol = (id_rol, db) => {
   return db.select('descripcion')
           .from('roles')
-          .where('id', rol_id)
+          .where('id', id_rol)
           .then(data => data[0])
           .catch((err) => {
             logger.error(err);
             return Promise.reject(err);
           })
+}
+
+//Generar código aleatorio de 6 dígitos para resetear password
+const generarCodigoPassword = () => {
+  return Math.floor(Math.pow(10, 6-1) + Math.random() * (Math.pow(10, 6) - Math.pow(10, 6-1) - 1));
 }
 
 const loginAuthentication = (db, bcrypt) => (req, res) => {
@@ -113,7 +130,7 @@ const loginAuthentication = (db, bcrypt) => (req, res) => {
   else
     return handleLogin (db, bcrypt, req, res)
       .then((data) => {
-          if(data.id && data.dni && data.rol_id)
+          if(data.id && data.dni && data.id_rol)
             return createSession(data, db);
           else
             return Promise.reject(data);
@@ -121,8 +138,95 @@ const loginAuthentication = (db, bcrypt) => (req, res) => {
       .then(session => res.json(session))
       .catch((err) => {
         logger.error(err);
-        return res.status(400).json(err);
+        return res.status(500).json(err);
       });
 };
 
-module.exports = { loginAuthentication };
+const olvidoPassword = (db) => (req, res) => {
+  const { email } = req.body;
+  if(!email)
+    return res.status(400).json();
+  //Busco si existe un paciente con el email ingresado
+  db('pacientes')
+    .select('*')
+    .where('email', email)
+    .then((pac) => {
+      if(pac[0]){
+        const codigo = generarCodigoPassword();
+        const mailOptions = mailSender.setMailOptionsPassword(email, codigo);
+        setCodigo(codigo, email);
+        mailSender.sendEmail(transporter, mailOptions);
+        return res.status(200).json();
+      } else {
+        logger.info('Paciente no encontrado.');
+        return res.status(400).json();
+      }
+    })
+    .catch((error) => {
+      logger.error(error);
+      return res.status(500).json(error);
+    })
+};
+
+const confirmCodigoPassword = (db) => (req, res) => {
+  const { codigo } = req.body;
+  if(!codigo)
+    return res.status(400).json();
+  redisClient.get(codigo, (err, reply) => {
+    if(err || !reply)
+      return res.status(400).json();
+    db('pacientes')
+       .select('*')
+       .where('email', reply)
+       .then((pac) => {
+         if(!pac){
+           logger.info('Paciente no encontrado.');
+           return res.status(400).json();
+         }
+       })
+       .catch((error) => {
+         logger.error(error);
+         return res.status(500).json();
+       })
+  });
+  redisClient.del(codigo);
+  return res.status(200).json();
+};
+
+const changePassword = (db, bcrypt) => (req, res) => {
+  const { password, email } = req.body;
+  if(!password || !validator.validarPassword(password) || !email || !validator.validarEmail(email))
+    return res.status(400).json();
+  const passwordHasheada = bcrypt.hashSync(password);
+  // Busco el paciente y me quedo con el id del usuario
+  db('pacientes')
+    .select('id_usuario')
+    .where('email', email)
+    .then((pac) =>{
+      if(pac){
+        //Busco el usuario y cambio la pass por la nueva
+        db('usuarios')
+          .where('id', pac[0].id_usuario)
+          .update({password : passwordHasheada})
+          .then(() => {
+            logger.info('password cambiada');
+            return res.status(200).json();
+          })
+          .catch((err) => {
+            logger.error(err);
+            return res.status(500).json();
+          });
+      }
+    })
+    .catch((err) => {
+      logger.error(err);
+      return res.status(500).json();
+    });
+};
+
+module.exports = {
+  loginAuthentication,
+  olvidoPassword,
+  confirmCodigoPassword,
+  changePassword
+};

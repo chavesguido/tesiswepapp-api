@@ -44,9 +44,11 @@ const crearNuevaCuenta = (db, bcrypt) => (req, res) => {
     .then((idRol) => {
       if(idRol.id){
         const nuevoUsuario = new Usuario(dni, password, bcrypt, idRol.id);
-        db('usuarios').insert(nuevoUsuario)
+        db('usuarios')
+					.returning('id')
+					.insert(nuevoUsuario)
           .then((data) => {
-            const nuevoPaciente = new Paciente(nombre, apellido, fechaNacimiento, sexo, email);
+            const nuevoPaciente = new Paciente(nombre, apellido, fechaNacimiento, sexo, email, data[0]);
             db('pacientes').insert(nuevoPaciente)
             .then(() => {
               //Genero el token
