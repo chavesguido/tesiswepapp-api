@@ -53,7 +53,7 @@ const handleLogin = (db, bcrypt, req, res) => {
     })
     .catch((err) => {
       logger.error(err);
-    return Promise.reject('DNI o password incorrectos.');
+      return Promise.reject('DNI o password incorrectos.');
     });
 };
 
@@ -138,10 +138,14 @@ const loginAuthentication = (db, bcrypt) => (req, res) => {
       .then(session => res.json(session))
       .catch((err) => {
         logger.error(err);
+        if(err=='DNI o password incorrectos.')
+          return res.status(404).json();
         return res.status(500).json(err);
       });
 };
 
+// Manejo de olvido de password. Se chequea que el email es valido
+// Se genera un codigo de 6 digitos random y se le envia al mail
 const olvidoPassword = (db) => (req, res) => {
   const { email } = req.body;
   if(!email)
@@ -154,12 +158,12 @@ const olvidoPassword = (db) => (req, res) => {
       if(pac[0]){
         const codigo = generarCodigoPassword();
         const mailOptions = mailSender.setMailOptionsPassword(email, codigo);
-        setCodigo(codigo, email);
         mailSender.sendEmail(transporter, mailOptions);
+        setCodigo(codigo, email);
         return res.status(200).json();
       } else {
         logger.info('Paciente no encontrado.');
-        return res.status(400).json();
+        return res.status(404).json();
       }
     })
     .catch((error) => {
@@ -168,6 +172,9 @@ const olvidoPassword = (db) => (req, res) => {
     })
 };
 
+// Manejo de envio de codigo para verificar que es un codigo Valido
+// Se obtiene de redis el email asociado al codigo y se verifica tanto que el codigo es valido
+// como que el mail asociado al codigo es el del paciente en cuestion
 const confirmCodigoPassword = (db) => (req, res) => {
   const { codigo } = req.body;
   if(!codigo)
@@ -179,9 +186,13 @@ const confirmCodigoPassword = (db) => (req, res) => {
        .select('*')
        .where('email', reply)
        .then((pac) => {
+         console.log(pac[0]);
          if(!pac){
            logger.info('Paciente no encontrado.');
-           return res.status(400).json();
+           return res.status(404).json();
+         } else {
+           redisClient.del(codigo);
+           return res.status(200).json();
          }
        })
        .catch((error) => {
@@ -189,10 +200,11 @@ const confirmCodigoPassword = (db) => (req, res) => {
          return res.status(500).json();
        })
   });
-  redisClient.del(codigo);
-  return res.status(200).json();
 };
 
+
+// Manejo del cambio de password una vez validado el codigo
+// se hashea el nuevo password se busca el usuario asociado al paciente y se le modifica por la nueva password
 const changePassword = (db, bcrypt) => (req, res) => {
   const { password, email } = req.body;
   if(!password || !validator.validarPassword(password) || !email || !validator.validarEmail(email))
@@ -216,6 +228,9 @@ const changePassword = (db, bcrypt) => (req, res) => {
             logger.error(err);
             return res.status(500).json();
           });
+      } else {
+        logger.info('paciente no encontrado');
+        return res.status(404).json();
       }
     })
     .catch((err) => {
