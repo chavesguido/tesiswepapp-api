@@ -40,39 +40,62 @@ const crearNuevaCuenta = (db, bcrypt) => (req, res) => {
     return res.status(400).json();
   if(!validator.validarLetras(nombre) || !validator.validarLetras(apellido) || !validator.validarPassword(password) || !validator.validarNumeros(dni) || !validator.validarEmail(email))
     return res.status(400).json();
-  buscarIdRolPaciente(db)
-    .then((idRol) => {
-      if(idRol.id){
-        const nuevoUsuario = new Usuario(dni, password, bcrypt, idRol.id);
-        db('usuarios')
-					.returning('id')
-					.insert(nuevoUsuario)
-          .then((data) => {
-            const nuevoPaciente = new Paciente(nombre, apellido, fechaNacimiento, sexo, email, data[0]);
-            db('pacientes').insert(nuevoPaciente)
-            .then(() => {
-              //Genero el token
-              const token = signToken(nuevoUsuario.dni);
-              setToken(token, nuevoUsuario.dni);
-              const mailOptions = mailSender.setMailOptions(nuevoPaciente.email, token);
-              mailSender.sendEmail(transporter, mailOptions);
-            })
-            .catch((err) => {
-              logger.error(err);
-              return res.status(500).json();
-            })
-          })
-          .catch((err) => {
-            logger.error(err);
-            return res.status(500).json();
-          });
-        return res.status(200).json('success');
-      }
-    })
-    .catch((err) => {
-      logger.error(err);
-      return res.status(500).json();
-    });
+
+	//Busco si existe un usuario con el DNI ingresado
+	buscarUsuarioPorDni(db, dni)
+		.then((usr) => {
+			if(usr){
+				logger.info('ya existe un usuario con el DNI ingresado');
+				return res.status(400).json();
+			}
+			//Busco si existe un paciente con el mail ingresado
+			buscarPacientePorEmail(db, email)
+				.then((pct) => {
+					if(pct){
+						logger.info('ya existe un paciente con el email ingresado')
+						return res.status(400).json();
+					}
+					buscarIdRolPaciente(db)
+				    .then((idRol) => {
+				      if(idRol.id){
+				        const nuevoUsuario = new Usuario(dni, password, bcrypt, idRol.id);
+				        db('usuarios')
+									.returning('id')
+									.insert(nuevoUsuario)
+				          .then((data) => {
+				            const nuevoPaciente = new Paciente(nombre, apellido, fechaNacimiento, sexo, email, data[0]);
+				            db('pacientes').insert(nuevoPaciente)
+				            .then(() => {
+				              //Genero el token
+				              const token = signToken(nuevoUsuario.dni);
+				              setToken(token, nuevoUsuario.dni);
+				              const mailOptions = mailSender.setMailOptions(nuevoPaciente.email, token);
+				              mailSender.sendEmail(transporter, mailOptions);
+				            })
+				            .catch((err) => {
+				              logger.error(err);
+				              return res.status(500).json();
+				            })
+				          })
+				          .catch((err) => {
+				            logger.error(err);
+				            return res.status(500).json();
+				          });
+				        return res.status(200).json('success');
+				      }
+				    })
+				    .catch((err) => {
+				      logger.error(err);
+				      return res.status(500).json();
+				    });
+				})
+				.catch((error) => {
+					return res.status(500).json();
+				});
+		})
+		.catch((error) => {
+			return res.status(500).json();
+		});
 
 }
 
@@ -87,6 +110,36 @@ const buscarIdRolPaciente = ((db) => {
       logger.error(error);
       return undefined;
     });
+});
+
+const buscarUsuarioPorDni = ((db, dni) => {
+	return db('usuarios')
+		.select('*')
+		.where('dni', dni)
+		.then((user) => {
+			if(user[0]){
+				return user[0];
+			}
+		})
+		.catch((error) => {
+			logger.error(error);
+			return 'error';
+		});
+});
+
+const buscarPacientePorEmail = ((db, email) => {
+	return db('pacientes')
+		.select('*')
+		.where('email', email)
+		.then((pac) => {
+			if(pac[0]){
+				return pac[0];
+			}
+		})
+		.catch((error) => {
+			logger.error(error);
+			return 'error';
+		});
 });
 
 const activarUsuario = (db) => (req, res) => {

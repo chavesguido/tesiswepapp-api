@@ -39,21 +39,29 @@ const handleLogin = (db, bcrypt, req, res) => {
           .where('dni', dni)
           .then((usuario) => {
             if(usuario[0].estado != 'activo'){
-              return Promise.reject('El usuario no esta activo.');
+              logger.info('El usuario no esta activo');
+              return Promise.reject('El usuario no esta activo');
             }
             return usuario[0];
           })
           .catch((err) => {
+            if(err == 'El usuario no esta activo')
+              return Promise.reject('El usuario no esta activo');
             logger.error(err);
             return Promise.reject('Error buscando usuario');
           });
       } else {
-        return Promise.reject('DNI o password incorrectos.');
+        logger.info('DNI o password incorrectos');
+        return Promise.reject('DNI o password incorrectos');
       }
     })
     .catch((err) => {
+      if(err == 'El usuario no esta activo')
+        return Promise.reject('El usuario no esta activo');
+      if(err == 'Error buscando usuario')
+        return Promise.reject('Error buscando usuario');
       logger.error(err);
-      return Promise.reject('DNI o password incorrectos.');
+      return Promise.reject('Error buscando usuario');
     });
 };
 
@@ -138,8 +146,10 @@ const loginAuthentication = (db, bcrypt) => (req, res) => {
       .then(session => res.json(session))
       .catch((err) => {
         logger.error(err);
-        if(err=='DNI o password incorrectos.')
+        if(err=='DNI o password incorrectos')
           return res.status(404).json();
+        if(err=='El usuario no esta activo')
+          return res.status(403).json();
         return res.status(500).json(err);
       });
 };
