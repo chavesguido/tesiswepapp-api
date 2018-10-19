@@ -249,9 +249,20 @@ const changePassword = (db, bcrypt) => (req, res) => {
     });
 };
 
+// Manejo del cierre de sesion
+const cerrarSesion = () => (res, req) => {
+  const { token } = req.body;
+  if(!token)
+    return res.status(400).json();
+  redisClient.del(token);
+  return res.status(200).json();
+};
+
 module.exports = {
   loginAuthentication,
   olvidoPassword,
   confirmCodigoPassword,
-  changePassword
+  changePassword,
+  cerrarSesion,
+  redisClient
 };

@@ -15,11 +15,8 @@ const transporter = mailSender.transporter;
 const jwt = require('jsonwebtoken');
 const secrets = require('../localconfigs/secrets.js');
 
-// Setup de redis
-const config = require('../db/config');
-const REDIS_URL = config.redis_config;
-const redis = require('redis');//Usado para el manejo de Redis
-const redisClient = redis.createClient({ REDIS_URL });
+// Cliente de redis
+const redisClient = require('./loginController').redisClient;
 
 //Generacion de token
 const signToken = (dni) => {

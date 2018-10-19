@@ -11,10 +11,12 @@ const bcrypt = require('bcrypt-nodejs'); //Usado para hashear las passwords
 // Controllers
 const loginController  = require('./controllers/loginController');
 const usuarioController = require('./controllers/usuarioController');
+const authenticateController = require('./controllers/authenticateController');
 
 // Configuraciones
 const connection = require('./db/config');
 const loggerConfig = require('./configs/loggerConfig');
+
 
 // Genero el server de express
 const app = express();
@@ -56,18 +58,24 @@ app.listen(PORT, () => {
 
 //Logeo de un usuario
 app.post('/logIn', loginController.loginAuthentication(db, bcrypt));
+
 //Olvido de password
 app.post('/olvidoPassword', loginController.olvidoPassword(db));
+
 //Confirmar codigo para olvido de password
 app.post('/confirmCodigoPassword', loginController.confirmCodigoPassword(db));
+
 //Cambio de constraseña
 app.post('/changePassword', loginController.changePassword(db, bcrypt));
 
+//Cierre de sesion
+app.post('/cerrarSesion', authenticateController.requireAuth, loginController.cerrarSesion());
 
 //-------------------------- Servicios asociados a usuarios ---------------------------
 
 //Creacion de una nueva cuenta
 app.post('/crearNuevaCuenta', usuarioController.crearNuevaCuenta(db, bcrypt));
+
 //Activacion de usuario
 app.get('/confirmation/:token', usuarioController.activarUsuario(db));
 
