@@ -7,6 +7,9 @@ module.exports = class Paciente {
     this.sexo = sexo;
     this.email = email;
     this.id_usuario = idUsuario;
+    let aux = new Date();
+    let aux2 = this.fechaNacimiento.split('-');
+    this.edad = aux.getFullYear() - Number(aux2[0]);
   }
 
 }

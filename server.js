@@ -69,7 +69,7 @@ app.post('/confirmCodigoPassword', loginController.confirmCodigoPassword(db));
 app.post('/changePassword', loginController.changePassword(db, bcrypt));
 
 //Cierre de sesion
-app.post('/cerrarSesion', authenticateController.requireAuth, loginController.cerrarSesion());
+app.post('/cerrarSesion', authenticateController.requireAuth, (req, res) => {loginController.cerrarSesion(req, res)});
 
 //-------------------------- Servicios asociados a usuarios ---------------------------
 
@@ -78,5 +78,8 @@ app.post('/crearNuevaCuenta', usuarioController.crearNuevaCuenta(db, bcrypt));
 
 //Activacion de usuario
 app.get('/confirmation/:token', usuarioController.activarUsuario(db));
+
+//Devolver perfil del usuario
+app.get('/perfil/:id_usuario', authenticateController.requireAuth, loginController.getProfile(db));
 
 //-------------------------- Fin servicios API rest -----------------------------------

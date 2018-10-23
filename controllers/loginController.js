@@ -22,6 +22,10 @@ const transporter = mailSender.transporter;
 //Validador de data
 const validator = require('./validators/validators');
 
+//Classes
+const PerfilPaciente = require('../classes/perfilPaciente');
+
+
 // Manejo del login en el sistema
 const handleLogin = (db, bcrypt, req, res) => {
   const { dni, password } = req.body;
@@ -101,7 +105,7 @@ const createSession = (usuario, db) => {
       return getRol(id_rol, db)
       .then((rol) => {
         const usuario_rol = rol.descripcion;
-        return { success: 'true', usuarioId: id, token, usuario_rol };
+        return { success: 'true', id_usuario: id, token, usuario_rol };
       }).catch((err) => {
         logger.error(err);
         return Promise.reject('Error obteniendo rol.')
@@ -196,7 +200,6 @@ const confirmCodigoPassword = (db) => (req, res) => {
        .select('*')
        .where('email', reply)
        .then((pac) => {
-         console.log(pac[0]);
          if(!pac){
            logger.info('Paciente no encontrado.');
            return res.status(404).json();
@@ -250,13 +253,54 @@ const changePassword = (db, bcrypt) => (req, res) => {
 };
 
 // Manejo del cierre de sesion
-const cerrarSesion = () => (res, req) => {
-  const { token } = req.body;
+const cerrarSesion = (req, res) => {
+  const { token } = req.headers;
+  console.log(token);
   if(!token)
     return res.status(400).json();
   redisClient.del(token);
   return res.status(200).json();
 };
+
+// Obtener informacion del usuario logueado
+const getProfile = (db) => (req, res) => {
+  const { id_usuario } = req.params;
+  const { rol } = req.headers;
+  if(!id_usuario || !rol)
+    return res.status(400).json();
+  db('usuarios')
+    .select('dni')
+    .where('id', id_usuario)
+    .then((user) => {
+      if(user[0]){
+        if(rol == 'paciente'){
+          db('pacientes')
+            .select('*')
+            .where('id_usuario', id_usuario)
+            .then((pac) => {
+              if(pac[0]){
+                const perfilPaciente = new PerfilPaciente(pac[0].nombre, pac[0].apellido, user[0].dni, pac[0].email, pac[0].sexo, pac[0].edad, pac[0].fechaNacimiento, pac[0].nacionalidad, pac[0].estadoCivil, pac[0].telefono_fijo, pac[0].telefono_celular, null, pac[0].id_historia, pac[0].id_domicilio);
+                return res.status(200).json(perfilPaciente);
+              } else {
+                logger.error('paciente no encontrado')
+                return res.status(404).json();
+              }
+            })
+            .catch((error) => {
+              logger.error(error);
+              return res.status(500).json();
+            });
+        }
+      } else {
+        logger.error('usuario no encontrado')
+        return res.status(404).json();
+      }
+    })
+    .catch((error) => {
+      logger.error(error);
+      return res.status(500).json();
+    });
+}
 
 module.exports = {
   loginAuthentication,
@@ -264,5 +308,6 @@ module.exports = {
   confirmCodigoPassword,
   changePassword,
   cerrarSesion,
+  getProfile,
   redisClient
 };

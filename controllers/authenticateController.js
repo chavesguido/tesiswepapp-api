@@ -8,7 +8,7 @@ const requireAuth = (req, res, next) => {
   return redisClient.get(authorization, (err, reply) => {
     if(err || !reply)
       return res.status(401).json();
-    return next;
+    return next();
   });
 }
 
